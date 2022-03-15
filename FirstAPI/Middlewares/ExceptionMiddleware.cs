@@ -1,0 +1,66 @@
+﻿using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Threading.Tasks;
+
+namespace Bootcamp_Odev_2.Middlewares
+{
+    // You may need to install the Microsoft.AspNetCore.Http.Abstractions package into your project
+    public class ExceptionMiddleware
+    {
+        private readonly RequestDelegate _next;
+        private readonly IConfiguration _configuration;
+        public ExceptionMiddleware(RequestDelegate next, IConfiguration configuration)
+        {
+            _next = next;
+            _configuration = configuration;
+        }
+
+        public async Task Invoke(HttpContext httpContext,IConfiguration config)
+        {
+            //swagger veya postmandan request olarak gönderilen path login veya register ise pipeline olarak devam edecektir
+            try
+            {
+                var currentVersion = new Version(config.GetValue<string>("AppVersion"));
+                if(httpContext.Request.Headers.TryGetValue("app-version",out var version)&& Version.TryParse(version,out var requestVersion)&& requestVersion.CompareTo(currentVersion)<=0
+                    || httpContext.Request.Path=="/login"||httpContext.Request.Path== "/register")
+                { 
+                await _next(httpContext);
+            }
+                else
+                {
+                    //aksi durumda 401 kodu dönecektir
+                    httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    await httpContext.Response.WriteAsync("Status401Unauthorized");
+                }
+            }
+            catch(Exception ex)
+            {
+                await HandleExceptionAsync(httpContext, ex);
+            }
+            
+        }
+
+       
+
+        private async Task HandleExceptionAsync(HttpContext httpContext,Exception exception)
+        {
+          //  if (httpContext.Request.Path == "/api/login") //bir api oluştururum
+         //  if(httpContext.Request.Method=="POST")//gelen request post ise git bunu yap
+           
+            httpContext.Response.StatusCode = 401;//headerına yazıyor
+            await httpContext.Response.WriteAsync($"Internal Server Error.Detail:{exception.Message}");//body sine yazıyor
+        }
+    }
+
+
+    
+    public static class ExceptionMiddlewareExtensions
+    {
+        public static IApplicationBuilder UseExceptionMiddleware(this IApplicationBuilder builder)
+        {
+            return builder.UseMiddleware<ExceptionMiddleware>();
+        }
+    }
+}
