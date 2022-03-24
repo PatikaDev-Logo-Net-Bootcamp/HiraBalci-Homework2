@@ -17,22 +17,22 @@ namespace Bootcamp_Odev_2.Middlewares
             _configuration = configuration;
         }
 
-        public async Task Invoke(HttpContext httpContext,IConfiguration config)
+        public async Task Invoke(HttpContext httpContext)
         {
             //swagger veya postmandan request olarak gönderilen path login veya register ise pipeline olarak devam edecektir
+            var appVersion = new Version(_configuration.GetValue<string>("app-version"));
+            var inputVersion = new Version(httpContext.Request.Headers["app-version"]);
+
             try
             {
-                var currentVersion = new Version(config.GetValue<string>("AppVersion"));
-                if(httpContext.Request.Headers.TryGetValue("app-version",out var version)&& Version.TryParse(version,out var requestVersion)&& requestVersion.CompareTo(currentVersion)<=0
-                    || httpContext.Request.Path=="/login"||httpContext.Request.Path== "/register")
-                { 
-                await _next(httpContext);
-            }
-                else
+                if (httpContext.Request.Path == "/register" || httpContext.Request.Path == "/login")
                 {
-                    //aksi durumda 401 kodu dönecektir
+                    await _next(httpContext);
+                }
+                else if (appVersion.CompareTo(inputVersion) > 0)
+                {
                     httpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    await httpContext.Response.WriteAsync("Status401Unauthorized");
+                    await httpContext.Response.WriteAsync("401 Unauthorized Error!");
                 }
             }
             catch(Exception ex)
@@ -46,11 +46,11 @@ namespace Bootcamp_Odev_2.Middlewares
 
         private async Task HandleExceptionAsync(HttpContext httpContext,Exception exception)
         {
-          //  if (httpContext.Request.Path == "/api/login") //bir api oluştururum
-         //  if(httpContext.Request.Method=="POST")//gelen request post ise git bunu yap
-           
-            httpContext.Response.StatusCode = 401;//headerına yazıyor
-            await httpContext.Response.WriteAsync($"Internal Server Error.Detail:{exception.Message}");//body sine yazıyor
+            //  if (httpContext.Request.Path == "/api/login") //bir api oluştururum
+            //  if(httpContext.Request.Method=="POST")//gelen request post ise git bunu yap
+
+            httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await httpContext.Response.WriteAsync("Error! " + exception.Message);
         }
     }
 
